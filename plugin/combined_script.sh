@@ -141,6 +141,12 @@ declare -A patterns=(
 	["amazon_aws_access_key_id"]="AKIA[0-9A-Z]{16}"
 	["paypal_braintree_access_token"]="access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}"
 	["checkout_key"]="pk_[0-9a-zA-Z]{24,99}" 
+    ["shodan_api_key"]="[0-9a-f]{32}"  # New pattern for Shodan API Keys
+    ["cloudflare_api_token"]="CFPAT-[0-9A-Za-z]{43}"  # New pattern for Cloudflare API Tokens
+    ["dropbox_api_token"]="sl\.[A-Za-z0-9]{64}"  # New pattern for Dropbox API Tokens
+    ["firebase_custom_token"]="eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+"  # New pattern for Firebase Custom Tokens
+    ["instagram_access_token"]="IGQV[A-Za-z0-9]+"  # New pattern for Instagram Access Tokens
+    ["securitytrails_key"]="st_[0-9A-Za-z]{32}"  # New pattern for SecurityTrails API Keys
 )
 
 # Initialize output file
@@ -231,7 +237,7 @@ echo "" >> "$output_file"
 update_status() {
     local key="$1"
     local status="$2"
-    sed -i "s/\(Value: $key\)$/\1 [Status: $status]/" "$output_file"
+    sed -i "s|\(Value: $key\)$|\1 [Status: $status]|" "$output_file"
 }
 extract_and_test() {
     local pattern="$1"
@@ -250,7 +256,7 @@ extract_and_test() {
 }
 test_google_key() {
     local key="$1"
-    response=$(curl -s -H "referer: http://example.com" \
+    response=$(curl -s -m 5 -H "referer: http://example.com" \
          "https://maps.googleapis.com/maps/api/directions/json?origin=Stockholm&destination=Kalmar&key=$key")
     
     if [[ $response == *"error_message"* ]]; then
@@ -279,7 +285,7 @@ test_aws_key() {
 }
 test_heroku_key() {
     local key="$1"
-    response=$(curl -s -X GET \
+    response=$(curl -s -m 5 -X GET \
         -H "Accept: application/vnd.heroku+json; version=3" \
         -H "Authorization: Bearer $key" \
         "https://api.heroku.com/account")
@@ -292,7 +298,7 @@ test_heroku_key() {
 }
 test_twilio_sid() {
     local sid="$1"
-    response=$(curl -s -X GET "https://api.twilio.com/2010-04-01/Accounts/$sid.json" \
+    response=$(curl -s -m 5 -X GET "https://api.twilio.com/2010-04-01/Accounts/$sid.json" \
         -u "$sid:dummy_token")
     
     if [[ $response == *"authenticate"* ]]; then
@@ -305,7 +311,7 @@ test_twilio_sid() {
 }
 test_facebook_token() {
     local token="$1"
-    response=$(curl -s "https://graph.facebook.com/v13.0/me?access_token=$token")
+    response=$(curl -s -m 5 "https://graph.facebook.com/v13.0/me?access_token=$token")
     if [[ $response == *"id"* ]]; then
         update_status "$token" "VALID"
     else
@@ -314,7 +320,7 @@ test_facebook_token() {
 }
 test_firebase_token() {
     local token="$1"
-    response=$(curl -s -X POST \
+    response=$(curl -s -m 5 -X POST \
         -H "Content-Type: application/json" \
         -d "{\"token\":\"$token\"}" \
         "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken")
@@ -326,7 +332,7 @@ test_firebase_token() {
 }
 test_github_token() {
     local token="$1"
-    response=$(curl -s -H "Authorization: token $token" \
+    response=$(curl -s -m 5 -H "Authorization: token $token" \
         "https://api.github.com/user")
     if [[ $response == *"login"* ]]; then
         update_status "$token" "VALID"
@@ -336,7 +342,7 @@ test_github_token() {
 }
 test_instagram_token() {
     local token="$1"
-    response=$(curl -s "https://graph.instagram.com/me?access_token=$token")
+    response=$(curl -s -m 5 "https://graph.instagram.com/me?access_token=$token")
     if [[ $response == *"id"* ]]; then
         update_status "$token" "VALID"
     else
@@ -345,7 +351,7 @@ test_instagram_token() {
 }
 test_salesforce_token() {
     local token="$1"
-    response=$(curl -s -H "Authorization: Bearer $token" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $token" \
         "https://login.salesforce.com/services/oauth2/userinfo")
     if [[ $response == *"user_id"* ]]; then
         update_status "$token" "VALID"
@@ -355,7 +361,7 @@ test_salesforce_token() {
 }
 test_zendesk_token() {
     local token="$1"
-    response=$(curl -s -H "Authorization: Bearer $token" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $token" \
         "https://api.zendesk.com/api/v2/users/me")
     if [[ $response == *"email"* ]]; then
         update_status "$token" "VALID"
@@ -365,7 +371,7 @@ test_zendesk_token() {
 }
 test_openai_key() {
     local key="$1"
-    response=$(curl -s -H "Authorization: Bearer $key" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" \
         -H "Content-Type: application/json" \
         "https://api.openai.com/v1/models")
     
@@ -377,7 +383,7 @@ test_openai_key() {
 }
 test_google_ai_key() {
     local key="$1"
-    response=$(curl -s -H "Authorization: Bearer $key" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" \
         "https://generativelanguage.googleapis.com/v1/models")
     
     if [[ $response == *"models"* ]]; then
@@ -388,7 +394,7 @@ test_google_ai_key() {
 }
 test_anthropic_key() {
     local key="$1"
-    response=$(curl -s -H "x-api-key: $key" \
+    response=$(curl -s -m 5 -H "x-api-key: $key" \
         -H "Content-Type: application/json" \
         "https://api.anthropic.com/v1/models")
     
@@ -400,7 +406,7 @@ test_anthropic_key() {
 }
 test_cohere_key() {
     local key="$1"
-    response=$(curl -s -H "Authorization: Bearer $key" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" \
         -H "Content-Type: application/json" \
         "https://api.cohere.ai/v1/models")
     
@@ -413,7 +419,7 @@ test_cohere_key() {
 test_firebase_api_key() {
     local key="$1"
     local data='{"longDynamicLink": "https://sub.example.com/?link=https://example.org"}'
-    response=$(curl -s -X POST "https://firebasedynamiclinks.googleapis.com/v1/shortLinks?key=$key" -H 'Content-Type: application/json' -d "$data")
+    response=$(curl -s -m 5 -X POST "https://firebasedynamiclinks.googleapis.com/v1/shortLinks?key=$key" -H 'Content-Type: application/json' -d "$data")
     
     if [[ $response != *"API key not valid"* ]]; then
         update_status "$key" "VALID-FIREBASE-API"
@@ -423,7 +429,7 @@ test_firebase_api_key() {
 }
 test_twitter_api_secret() {
     local secret="$1"
-    response=$(curl -s -u "$secret" \
+    response=$(curl -s -m 5 -u "$secret" \
         "https://api.twitter.com/1.1/account/verify_credentials.json")
     
     if [[ $response == *"screen_name"* ]]; then
@@ -434,7 +440,7 @@ test_twitter_api_secret() {
 }
 test_twitter_bearer_token() {
     local token="$1"
-    response=$(curl -s -H "Authorization: Bearer $token" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $token" \
         "https://api.twitter.com/2/tweets")
     
     if [[ $response == *"data"* ]]; then
@@ -445,7 +451,7 @@ test_twitter_bearer_token() {
 }
 test_spotify_access_token() {
     local token="$1"
-    response=$(curl -s -H "Authorization: Bearer $token" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $token" \
         "https://api.spotify.com/v1/me")
     
     if [[ $response == *"id"* ]]; then
@@ -456,7 +462,7 @@ test_spotify_access_token() {
 }
 test_square_secret() {
     local secret="$1"
-    response=$(curl -s -H "Authorization: Bearer $secret" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $secret" \
         "https://connect.squareup.com/v2/locations")
     
     if [[ $response == *"locations"* ]]; then
@@ -467,7 +473,7 @@ test_square_secret() {
 }
 test_slack_api_token() {
     local token="$1"
-    response=$(curl -s -H "Authorization: Bearer $token" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $token" \
         "https://slack.com/api/auth.test")
     
     if [[ $response == *"ok\":true"* ]]; then
@@ -478,7 +484,7 @@ test_slack_api_token() {
 }
 test_recaptcha_site_key() {
     local key="$1"
-    response=$(curl -s "https://www.google.com/recaptcha/api/siteverify?secret=$key&response=dummy_response")
+    response=$(curl -s -m 5 "https://www.google.com/recaptcha/api/siteverify?secret=$key&response=dummy_response")
     
     if [[ $response == *"invalid-input-secret"* ]]; then
         update_status "$key" "INVALID"
@@ -488,7 +494,7 @@ test_recaptcha_site_key() {
 }
 test_braze_api_key() {
     local key="$1"
-    response=$(curl -s -H "Authorization: Bearer $key" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" \
         "https://rest.iad-05.braze.com/users/export/ids")
     
     if [[ $response == *"error"* ]]; then
@@ -499,7 +505,7 @@ test_braze_api_key() {
 }
 test_checkout_key() {
     local key="$1"
-    response=$(curl -s -H "Authorization: Bearer $key" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" \
         "https://api.checkout.com/payments")
     
     if [[ $response == *"error"* ]]; then
@@ -510,7 +516,7 @@ test_checkout_key() {
 }
 test_amplitude_key() {
     local key="$1"
-    response=$(curl -s -H "Authorization: Bearer $key" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" \
         "https://amplitude.com/api/2/usersearch")
     
     if [[ $response == *"error"* ]]; then
@@ -521,13 +527,101 @@ test_amplitude_key() {
 }
 test_user_snap_space_api_key() {
     local key="$1"
-    response=$(curl -s -H "Authorization: Bearer $key" \
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" \
         "https://api.usersnap.com/api/v1/projects")
     
     if [[ $response == *"error"* ]]; then
         update_status "$key" "INVALID"
     else
         update_status "$key" "VALID"
+    fi
+}
+
+# New function for testing Azure Tenant
+test_azure_tenant() {
+    local key="$1"
+    response=$(curl -s -m 5 "https://login.microsoftonline.com/$key/v2.0/.well-known/openid-configuration")
+    if [[ $response == *"tenant_region_scope"* ]]; then
+        update_status "$key" "VALID"
+    else
+        update_status "$key" "INVALID"
+    fi
+}
+
+# Add new function for testing AWS Secret Access Key
+test_aws_secret_key() {
+    local secret="$1"
+    export AWS_ACCESS_KEY_ID="DUMMY"
+    export AWS_SECRET_ACCESS_KEY="$secret"
+    export AWS_DEFAULT_REGION="us-east-1"
+    response=$(aws sts get-caller-identity 2>&1)
+    if [[ $response == *"InvalidClientTokenId"* ]]; then
+        update_status "$secret" "INVALID"
+    elif [[ $response == *"SignatureDoesNotMatch"* ]]; then
+        update_status "$secret" "VALID-NEEDS-ACCESS_KEY"
+    else
+        update_status "$secret" "POTENTIALLY-VALID"
+    fi
+    unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
+}
+
+# In the Key Testing Section, add a test function for Shodan API Keys:
+test_shodan_key() {
+    local key="$1"
+    response=$(curl -s -m 5 "https://api.shodan.io/api-info?key=$key")
+    if [[ $response == *"plan"* ]]; then
+        update_status "$key" "VALID"
+    else
+        update_status "$key" "INVALID"
+    fi
+}
+
+# In the Key Testing Section, add a test function for Cloudflare API Tokens:
+test_cloudflare_token() {
+    local key="$1"
+    response=$(curl -s -m 5 -H "Authorization: Bearer $key" "https://api.cloudflare.com/client/v4/user/tokens/verify")
+    if [[ $response == *"\"success\":true"* ]]; then
+        update_status "$key" "VALID"
+    else
+        update_status "$key" "INVALID"
+    fi
+}
+
+# In the Key Testing Section, add a test function for Dropbox API Tokens:
+test_dropbox_token() {
+    local key="$1"
+    response=$(curl -s -m 5 -X POST "https://api.dropboxapi.com/2/users/get_current_account" \
+         -H "Authorization: Bearer $key" \
+         -H "Content-Type: application/json")
+    if [[ $response == *"account_id"* ]]; then
+        update_status "$key" "VALID"
+    else
+        update_status "$key" "INVALID"
+    fi
+}
+
+# In the Key Testing Section, add a test function for Firebase Custom Tokens:
+test_firebase_custom_token() {
+    local token="$1"
+    response=$(curl -s -m 5 -X POST \
+         -H "Content-Type: application/json" \
+         -d "{\"token\":\"$token\"}" \
+         "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken")
+    if [[ $response == *"idToken"* ]]; then
+        update_status "$token" "VALID"
+    else
+        update_status "$token" "INVALID"
+    fi
+}
+
+# In the Key Testing Section, add a test function for SecurityTrails API Keys:
+test_securitytrails_key() {
+    local key="$1"
+    response=$(curl -s -m 5 -H "apikey: $key" "https://api.securitytrails.com/v1/domain/securitytrails.com")
+    if [[ $response == *"domain"* ]]; then
+        update_status "$key" "VALID"
+    else
+        update_status "$key" "INVALID"
     fi
 }
 
@@ -539,7 +633,7 @@ extract_and_test "amazon_aws_access_key_id" "AWS Access Keys" test_aws_key
 extract_and_test "heroku.*api.*key" "Heroku API Keys" test_heroku_key
 extract_and_test "twilio_account_sid" "Twilio Account SIDs" test_twilio_sid
 extract_and_test "facebook_access_token" "Facebook Access Tokens" test_facebook_token
-extract_and_test "firebase_custom_token" "Firebase Custom Tokens" test_firebase_token
+extract_and_test "firebase_custom_token" "Firebase Custom Tokens" test_firebase_custom_token
 extract_and_test "firebase_id_token" "Firebase ID Tokens" test_firebase_token
 extract_and_test "github_token" "GitHub Tokens" test_github_token
 extract_and_test "instagram_access_token" "Instagram Access Tokens" test_instagram_token
@@ -560,6 +654,18 @@ extract_and_test "braze_api_key" "Braze API Keys" test_braze_api_key
 extract_and_test "checkout_key" "Checkout Keys" test_checkout_key
 extract_and_test "amplitude_key" "Amplitude Keys" test_amplitude_key
 extract_and_test "user_snap_space_api_key" "UserSnap Space API Keys" test_user_snap_space_api_key
+# New extraction for Azure Tenant keys
+extract_and_test "azure_tenant" "Azure Tenant" test_azure_tenant
+# Add extraction for AWS Secret Access Keys
+extract_and_test "amazon_aws_secret_access_key" "AWS Secret Access Keys" test_aws_secret_key
+# Add extraction for Shodan API Keys:
+extract_and_test "shodan_api_key" "Shodan API Keys" test_shodan_key
+# Add extraction for Cloudflare API Tokens:
+extract_and_test "cloudflare_api_token" "Cloudflare API Tokens" test_cloudflare_token
+# Add extraction for Dropbox API Tokens:
+extract_and_test "dropbox_api_token" "Dropbox API Tokens" test_dropbox_token
+# Add extraction for SecurityTrails API Keys:
+extract_and_test "securitytrails_key" "SecurityTrails API Keys" test_securitytrails_key
 
 sed -i '/===.*===/{N;/===.*===\n$/d}' "$output_file"
 echo "Process complete. Results saved to $output_file"
