@@ -21,11 +21,14 @@ usage() {
 
 # Function to download URL content
 download_url() {
-    local url=$1
-    if [[ $url == http* ]]; then
-        curl -sk "$url"
+    local input="$1"
+    if [[ -f "$input" ]]; then
+        cat "$input"
+    elif [[ "$input" == http* ]]; then
+        curl -sk "$input"
     else
-        cat "$url"
+        # Assume input is raw text content
+        echo "$input"
     fi
 }
 
@@ -105,8 +108,6 @@ declare -A patterns=(
 	["authorization_basic"]="basic [a-zA-Z0-9=:_\\+\\/-]{5,100}"
 	["google_api"]="AIza[0-9A-Za-z\\-_]{35}"
 	["amazon_mws_auth_token"]="amzn\.mws\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-    ["amazon_aws_access_key_id"]="AKIA[0-9A-Z]{16}"
-    ["amazon_aws_secret_access_key"]="[0-9a-zA-Z/+]{40}"
     ["amazon_aws_session_token"]="FwoGZXIvYXdzEJj//////////wEaDGJ7Lj7KJ7rKvFJ7yLrK+J"
 	["google_captcha"]="6L[0-9A-Za-z-_]{38}"
 	["google_oauth"]="ya29\\.[0-9A-Za-z\\-_]+"
@@ -147,6 +148,16 @@ declare -A patterns=(
     ["firebase_custom_token"]="eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+"  # New pattern for Firebase Custom Tokens
     ["instagram_access_token"]="IGQV[A-Za-z0-9]+"  # New pattern for Instagram Access Tokens
     ["securitytrails_key"]="st_[0-9A-Za-z]{32}"  # New pattern for SecurityTrails API Keys
+    
+    ["recaptcha_site_key"]="siteKey: ?'([^']+)'"
+    ["recaptcha_site_key_mobile"]="siteKeyMobile: ?'([^']+)'"
+    ["checkout_key"]="checkoutKey: ?'([^']+)'"
+    ["braze_api_key"]="api_key: ?'([^']+)'"
+    ["amplitude_key"]="key: ?'([^']+)'"
+    ["user_snap_space_api_key"]="spaceApiKey: ?'([^']+)'"
+    ["sentry_dsn"]="sentryDsn: ?'([^']+)'"
+    ["firebase_appId"]="appId: ?'([^']+)'"  # New pattern for Firebase App ID
+    ["firebase_projectId"]="projectId: ?'([^']+)'"  # New pattern for Firebase Project ID
 )
 
 # Initialize output file
@@ -154,50 +165,36 @@ declare -A patterns=(
 
 # Process each input URL/file
 for input in "${input_urls[@]}"; do
-    # Trim whitespace from input
+    # Trim whitespace and skip empty lines
     input=$(echo "$input" | tr -d '[:space:]')
-    
-    # Skip empty lines
     [[ -z "$input" ]] && continue
-    
+
     if [[ $debug == true ]]; then
         echo "Processing: $input"
     fi
 
-    # Download content
+    # Read content from file or URL (download_url already uses cat if not an HTTP URL)
     content=$(download_url "$input")
-    if [[ -z "$content" ]]; then
-        echo "Error: Could not download content from $input"
-        continue
-    fi
-    
-    # Extract JS URLs if it's HTML
+
+    # If content is HTML, perform JS extraction; otherwise (for plain text files) skip this branch.
     if grep -q "<html" <<< "$content"; then
+        # Extract JS URLs if it's HTML
         readarray -t js_urls < <(extract_js_urls "$content")
         for js_url in "${js_urls[@]}"; do
-            if [[ $debug == true ]]; then
-                echo "Found JS: $js_url"
-            fi
+            $debug && echo "Found JS: $js_url"
             js_content=$(download_url "$js_url")
-            if [[ ! -z "$js_content" ]]; then
-                content+=$'\n'"$js_content"
-            fi
+            [[ -n "$js_content" ]] && content+=$'\n'"$js_content"
         done
     fi
 
-    # Search for patterns
+    # The plain text (including already extracted keys) is processed here.
     for key_type in "${!patterns[@]}"; do
-        if [[ $debug == true ]]; then
-            echo "Searching for $key_type..."
-        fi
-        
+        $debug && echo "Searching for $key_type..."
         grep -oP "${patterns[$key_type]}" <<< "$content" 2>/dev/null | while read -r match; do
-            if [[ ! -z "$match" ]]; then
+            [[ -n "$match" ]] && {
                 echo "$key_type -> $match" >> "$output_file"
-                if [[ $debug == true ]]; then
-                    echo "Found $key_type: $match"
-                fi
-            fi
+                $debug && echo "Found $key_type: $match"
+            }
         done
     done
 done
@@ -625,6 +622,50 @@ test_securitytrails_key() {
     fi
 }
 
+# New test function for recaptcha_site_key_mobile
+test_recaptcha_site_key_mobile() {
+    local key="$1"
+    response=$(curl -s -m 5 "https://www.google.com/recaptcha/api/siteverify?secret=$key&response=dummy_response")
+    if [[ $response == *"invalid-input-secret"* ]]; then
+        update_status "$key" "INVALID"
+    else
+        update_status "$key" "VALID"
+    fi
+}
+
+# New test function for sentry_dsn
+test_sentry_dsn() {
+    local key="$1"
+    response=$(curl -s -m 5 "$key")
+    if [[ $response == *"sentry"* ]]; then
+        update_status "$key" "VALID"
+    else
+        update_status "$key" "INVALID"
+    fi
+}
+
+# Add new test function for firebase_projectId
+test_firebase_projectId() {
+    local id="$1"
+    # Simple validation: if length greater than 5, consider it valid
+    if [[ ${#id} -gt 5 ]]; then
+        update_status "$id" "VALID"
+    else
+        update_status "$id" "INVALID"
+    fi
+}
+
+# Add new test function for firebase_appId
+test_firebase_appId() {
+    local id="$1"
+    # Simple validation: if length greater than 10, consider it valid
+    if [[ ${#id} -gt 10 ]]; then
+        update_status "$id" "VALID"
+    else
+        update_status "$id" "INVALID"
+    fi
+}
+
 echo "Starting API key hunting and testing..."
 
 # Extract and test keys for each type
@@ -650,14 +691,20 @@ extract_and_test "spotify_access_token" "Spotify Access Tokens" test_spotify_acc
 extract_and_test "square_secret" "Square Secrets" test_square_secret
 extract_and_test "slack_api_token" "Slack API Tokens" test_slack_api_token
 extract_and_test "recaptcha_site_key" "reCAPTCHA Site Keys" test_recaptcha_site_key
+# New extraction for recaptcha_site_key_mobile
+extract_and_test "recaptcha_site_key_mobile" "reCAPTCHA Mobile Site Keys" test_recaptcha_site_key_mobile
 extract_and_test "braze_api_key" "Braze API Keys" test_braze_api_key
 extract_and_test "checkout_key" "Checkout Keys" test_checkout_key
 extract_and_test "amplitude_key" "Amplitude Keys" test_amplitude_key
 extract_and_test "user_snap_space_api_key" "UserSnap Space API Keys" test_user_snap_space_api_key
+# New extraction for sentry_dsn
+extract_and_test "sentry_dsn" "Sentry DSNs" test_sentry_dsn
+# New extraction for Firebase App ID
+extract_and_test "firebase_appId" "Firebase App IDs" test_firebase_appId
+# New extraction for Firebase Project IDs
+extract_and_test "firebase_projectId" "Firebase Project IDs" test_firebase_projectId
 # New extraction for Azure Tenant keys
 extract_and_test "azure_tenant" "Azure Tenant" test_azure_tenant
-# Add extraction for AWS Secret Access Keys
-extract_and_test "amazon_aws_secret_access_key" "AWS Secret Access Keys" test_aws_secret_key
 # Add extraction for Shodan API Keys:
 extract_and_test "shodan_api_key" "Shodan API Keys" test_shodan_key
 # Add extraction for Cloudflare API Tokens:
