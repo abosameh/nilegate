@@ -108,7 +108,9 @@ declare -A patterns=(
 	["authorization_basic"]="basic [a-zA-Z0-9=:_\\+\\/-]{5,100}"
 	["google_api"]="AIza[0-9A-Za-z\\-_]{35}"
 	["amazon_mws_auth_token"]="amzn\.mws\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-    ["amazon_aws_session_token"]="FwoGZXIvYXdzEJj//////////wEaDGJ7Lj7KJ7rKvFJ7yLrK+J"
+        ["amazon_aws_access_key_id"]="AKIA[0-9A-Z]{16}"
+        ["amazon_aws_secret_access_key"]="[0-9a-zA-Z/+]{40}"
+        ["amazon_aws_session_token"]="FwoGZXIvYXdzEJj//////////wEaDGJ7Lj7KJ7rKvFJ7yLrK+J"
 	["google_captcha"]="6L[0-9A-Za-z-_]{38}"
 	["google_oauth"]="ya29\\.[0-9A-Za-z\\-_]+"
 	["firebase_api_key"]="AIza[0-9A-Za-z-_]{35}"
@@ -142,22 +144,22 @@ declare -A patterns=(
 	["amazon_aws_access_key_id"]="AKIA[0-9A-Z]{16}"
 	["paypal_braintree_access_token"]="access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}"
 	["checkout_key"]="pk_[0-9a-zA-Z]{24,99}" 
-    ["shodan_api_key"]="[0-9a-f]{32}"  # New pattern for Shodan API Keys
-    ["cloudflare_api_token"]="CFPAT-[0-9A-Za-z]{43}"  # New pattern for Cloudflare API Tokens
-    ["dropbox_api_token"]="sl\.[A-Za-z0-9]{64}"  # New pattern for Dropbox API Tokens
-    ["firebase_custom_token"]="eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+"  # New pattern for Firebase Custom Tokens
-    ["instagram_access_token"]="IGQV[A-Za-z0-9]+"  # New pattern for Instagram Access Tokens
-    ["securitytrails_key"]="st_[0-9A-Za-z]{32}"  # New pattern for SecurityTrails API Keys
-    
-    ["recaptcha_site_key"]="siteKey: ?'([^']+)'"
-    ["recaptcha_site_key_mobile"]="siteKeyMobile: ?'([^']+)'"
-    ["checkout_key"]="checkoutKey: ?'([^']+)'"
-    ["braze_api_key"]="api_key: ?'([^']+)'"
-    ["amplitude_key"]="key: ?'([^']+)'"
-    ["user_snap_space_api_key"]="spaceApiKey: ?'([^']+)'"
-    ["sentry_dsn"]="sentryDsn: ?'([^']+)'"
-    ["firebase_appId"]="appId: ?'([^']+)'"  # New pattern for Firebase App ID
-    ["firebase_projectId"]="projectId: ?'([^']+)'"  # New pattern for Firebase Project ID
+        ["shodan_api_key"]="[0-9a-f]{32}"  
+        ["cloudflare_api_token"]="CFPAT-[0-9A-Za-z]{43}"  
+        ["dropbox_api_token"]="sl\.[A-Za-z0-9]{64}"  
+        ["firebase_custom_token"]="eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+"  
+        ["instagram_access_token"]="IGQV[A-Za-z0-9]+"  
+        ["securitytrails_key"]="st_[0-9A-Za-z]{32}"  
+        ["firebase_api_key"]="apiKey: ?'([^']+)'"
+        ["recaptcha_site_key"]="siteKey: ?'([^']+)'"
+        ["recaptcha_site_key_mobile"]="siteKeyMobile: ?'([^']+)'"
+        ["checkout_key"]="checkoutKey: ?'([^']+)'"
+        ["braze_api_key"]="api_key: ?'([^']+)'"
+        ["amplitude_key"]="key: ?'([^']+)'"
+        ["user_snap_space_api_key"]="spaceApiKey: ?'([^']+)'"
+        ["sentry_dsn"]="sentryDsn: ?'([^']+)'"
+        ["firebase_appId"]="appId: ?'([^']+)'"  
+        ["firebase_databaseURL"]="databaseURL: ?'([^']+)'"
 )
 
 # Initialize output file
@@ -644,14 +646,14 @@ test_sentry_dsn() {
     fi
 }
 
-# Add new test function for firebase_projectId
-test_firebase_projectId() {
-    local id="$1"
-    # Simple validation: if length greater than 5, consider it valid
-    if [[ ${#id} -gt 5 ]]; then
-        update_status "$id" "VALID"
+# Add new test function for firebase_databaseURL
+test_firebase_databaseURL() {
+    local url="$1"
+    # Validate that the URL starts with "https://"
+    if [[ "$url" == https://* ]]; then
+        update_status "$url" "VALID"
     else
-        update_status "$id" "INVALID"
+        update_status "$url" "INVALID"
     fi
 }
 
@@ -701,10 +703,12 @@ extract_and_test "user_snap_space_api_key" "UserSnap Space API Keys" test_user_s
 extract_and_test "sentry_dsn" "Sentry DSNs" test_sentry_dsn
 # New extraction for Firebase App ID
 extract_and_test "firebase_appId" "Firebase App IDs" test_firebase_appId
-# New extraction for Firebase Project IDs
-extract_and_test "firebase_projectId" "Firebase Project IDs" test_firebase_projectId
+# New extraction for Firebase Database URLs
+extract_and_test "firebase_databaseURL" "Firebase Database URLs" test_firebase_databaseURL
 # New extraction for Azure Tenant keys
 extract_and_test "azure_tenant" "Azure Tenant" test_azure_tenant
+# Add extraction for AWS Secret Access Keys
+extract_and_test "amazon_aws_secret_access_key" "AWS Secret Access Keys" test_aws_secret_key
 # Add extraction for Shodan API Keys:
 extract_and_test "shodan_api_key" "Shodan API Keys" test_shodan_key
 # Add extraction for Cloudflare API Tokens:
