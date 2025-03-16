@@ -44,7 +44,6 @@ if [ -f "recon.sh" ] && [ -f "recon_tools_manager.sh" ]; then
     sudo ln -sf "$INSTALL_DIR/recon_tools_manager.sh" /usr/local/bin/recon-tools
     print_status "Scripts installed successfully"
     print_status "Running recon-tools..."
-    bash recon_tools_manager.sh
 else
     print_error "Required scripts not found in current directory"
     print_error "Make sure both recon.sh and recon_tools_manager.sh exist"
@@ -54,14 +53,15 @@ fi
 print_status "Installing plugin tools scripts..."
 
 cd $plugin_DIR
-if [ -f "cors.sh" ] && [ -f "cms_scan.sh" ] && [ -f "reconlfi.sh" ]; then
+if [ -f "cors.sh" ] && [ -f "cms_scan.sh" ] && [ -f "reconlfi.sh" ] && [ -f "secretfinder.sh" ]; then
     chmod +x "cors.sh"
     chmod +x "cms_scan.sh"
     chmod +x "reconlfi.sh"
+    chmod +x "secretfinder.sh"
     sudo ln -sf "$plugin_DIR/cors.sh" /usr/local/bin/cors
     sudo ln -sf "$plugin_DIR/cms_scan.sh" /usr/local/bin/cms_scan
     sudo ln -sf "$plugin_DIR/reconlfi.sh" /usr/local/bin/reconlfi
-    done
+    sudo ln -sf "$plugin_DIR/secretfinder.sh" /usr/local/bin/secretfinder
     print_status "Plugin tools scripts installed successfully"
 else
     print_error "Plugin directory not found or empty"
