@@ -254,6 +254,7 @@ install_tools() {
     fi
     # Install other GitHub tools
     github_repos=(
+        "https://github.com/solo10010/BugBounty-Hub.git"
         "https://github.com/Tuhinshubhra/CMSeeK.git"
         "https://github.com/GerbenJavado/LinkFinder.git"
         "https://github.com/m4ll0k/SecretFinder.git"
@@ -571,6 +572,7 @@ system_tools=(
 )
 
 github_tools=(
+    "$HOME/tools/BugBounty-Hub/endpoint-fuzz/content-injection.yaml"
     "$HOME/tools/CMSeeK/cmseek.py"
     "$HOME/tools/LinkFinder/linkfinder.py"
     "$HOME/tools/SecretFinder/SecretFinder.py"
