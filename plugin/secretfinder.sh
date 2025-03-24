@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#awk -F'src="|"' '/script/{for(i=1;i<=NF;i++) if($i~/\.js/) print $i}' 2.txt
 # === Secret Finder Section (from secret_finder.sh) ===
 #!/bin/bash
 
@@ -18,7 +18,7 @@ usage() {
     echo "  -d : Debug mode"
     exit 1
 }
-
+# curl -s https://www.coinhako.com/ | grep -oP '(?<=href=")[^"]+(?=")' | grep -E '\.js$'
 # Function to download URL content
 download_url() {
     local input="$1"
@@ -106,28 +106,21 @@ declare -A patterns=(
 	["SSH_privKey"]="-----BEGIN OPENSSH PRIVATE KEY-----[a-zA-Z0-9\s/+=]+-----END OPENSSH PRIVATE KEY-----"
 	["authorization_bearer"]="bearer\s+[a-zA-Z0-9\-\._~\+\/]+=*"
 	["authorization_basic"]="basic [a-zA-Z0-9=:_\\+\\/-]{5,100}"
-	["google_api"]="AIza[0-9A-Za-z\\-_]{35}"
+	["google_api"]="AIza[0-9A-Za-z\\-_]{35}(?![a-zA-Z0-9-_]*')"
 	["amazon_mws_auth_token"]="amzn\.mws\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
         ["amazon_aws_access_key_id"]="AKIA[0-9A-Z]{16}"
-        ["amazon_aws_secret_access_key"]="[0-9a-zA-Z/+]{40}"
         ["amazon_aws_session_token"]="FwoGZXIvYXdzEJj//////////wEaDGJ7Lj7KJ7rKvFJ7yLrK+J"
 	["google_captcha"]="6L[0-9A-Za-z-_]{38}"
 	["google_oauth"]="ya29\\.[0-9A-Za-z\\-_]+"
-	["firebase_api_key"]="AIza[0-9A-Za-z-_]{35}"
-	["checkout_key_test"]="pk_test_[0-9a-zA-Z]{24,99}"
-	["checkout_key_live"]="pk_live_[0-9a-zA-Z]{24,99}"
-	["braze_api_key"]="[a-f0-9]{32}-us[0-9]{1,2}"
-	["user_snap_space_api_key"]="[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}"
+	["firebase_api_key"]="(?:AIza[0-9A-Za-z-_]{35}|apiKey: ?'([^']+)')"
+	["checkout_key"]="(?:pk_[0-9a-zA-Z]{24,99}|checkoutKey: ?'([^']+)')"
+	["braze_api_key"]="[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+	["user_snap_space_api_key"]="spaceApiKey:\"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\""
 	["asana_access_token"]="[0-9]{16}:[0-9a-fA-F]{32}"
 	["azure_tenant"]="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 	["github_ssh_key"]="ssh-rsa [A-Za-z0-9+/]+[=]{0,3}"
 	["github_token"]="gh[ps]_[a-zA-Z0-9]{36}"
 	["gitlab_private_token"]="glpat-[0-9a-zA-Z-_]{20}"
-	["google_maps_key"]="AIza[0-9A-Za-z-_]{35}"
-	["paypal_key_sb"]="[A-Z0-9]{16}"
-	["paypal_key_live"]="[A-Z0-9]{16}"
-	["paypal_token_sb"]="access_token\$[a-zA-Z0-9]{24}\$[a-f0-9]{128}"
-	["paypal_token_live"]="access_token\$[a-zA-Z0-9]{24}\$[a-f0-9]{128}"
 	["salesforce_access_token"]="00D[a-zA-Z0-9]{12,15}"
 	["sendgrid_api_key"]="SG\.[a-zA-Z0-9-_]{22}\.[a-zA-Z0-9-_]{43}"
 	["slack_webhook"]="T[a-zA-Z0-9]{8}/B[a-zA-Z0-9]{8}/[a-zA-Z0-9]{24}"
@@ -143,24 +136,29 @@ declare -A patterns=(
 	["private_key"]="-----BEGIN PRIVATE KEY-----[a-zA-Z0-9\\s/+=]+-----END PRIVATE KEY-----"
 	["amazon_aws_access_key_id"]="AKIA[0-9A-Z]{16}"
 	["paypal_braintree_access_token"]="access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}"
-	["checkout_key"]="pk_[0-9a-zA-Z]{24,99}" 
-        ["shodan_api_key"]="[0-9a-f]{32}"  
-        ["cloudflare_api_token"]="CFPAT-[0-9A-Za-z]{43}"  
+	["cloudflare_api_token"]="CFPAT-[0-9A-Za-z]{43}"  
         ["dropbox_api_token"]="sl\.[A-Za-z0-9]{64}"  
         ["firebase_custom_token"]="eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+"  
         ["instagram_access_token"]="IGQV[A-Za-z0-9]+"  
         ["securitytrails_key"]="st_[0-9A-Za-z]{32}"  
-        ["firebase_api_key"]="apiKey: ?'([^']+)'"
         ["recaptcha_site_key"]="siteKey: ?'([^']+)'"
         ["recaptcha_site_key_mobile"]="siteKeyMobile: ?'([^']+)'"
-        ["checkout_key"]="checkoutKey: ?'([^']+)'"
-        ["braze_api_key"]="api_key: ?'([^']+)'"
         ["amplitude_key"]="key: ?'([^']+)'"
-        ["user_snap_space_api_key"]="spaceApiKey: ?'([^']+)'"
         ["sentry_dsn"]="sentryDsn: ?'([^']+)'"
-        ["firebase_appId"]="appId: ?'([^']+)'"  
-        ["firebase_databaseURL"]="databaseURL: ?'([^']+)'"
+        ["firebase_appId"]="appId:\"[0-9]+:[0-9]+:[a-z0-9]+:[a-z0-9]+\""
+        ["firebase_databaseURL"]="databaseURL:\"https://[a-zA-Z0-9-]+\.firebaseio\.com\""
+        
+
+    
 )
+
+# Debugging: Log the patterns being used
+if [[ $debug == true ]]; then
+    echo "Patterns being used for extraction:"
+    for key_type in "${!patterns[@]}"; do
+        echo "$key_type: ${patterns[$key_type]}"
+    done
+fi
 
 # Initialize output file
 > "$output_file"
@@ -177,6 +175,12 @@ for input in "${input_urls[@]}"; do
 
     # Read content from file or URL (download_url already uses cat if not an HTTP URL)
     content=$(download_url "$input")
+
+    # Debugging: Log the content being processed
+    if [[ $debug == true ]]; then
+        echo "Content being processed for $input:"
+        echo "$content"
+    fi
 
     # If content is HTML, perform JS extraction; otherwise (for plain text files) skip this branch.
     if grep -q "<html" <<< "$content"; then
@@ -672,15 +676,19 @@ test_firebase_appId() {
 fetch_firebase_data() {
     local api_key="$1"
     local db_url="$2"
-    # Construct endpoint (using 'users.json' as an example)
-    local endpoint="${db_url}/users.json?auth=${api_key}"
+    # Construct endpoint (using '.json' as the default path for Firebase Realtime Database)
+    local endpoint="${db_url}/.json?auth=${api_key}"
     echo "Fetching Firebase data from: ${endpoint}"
     local result
     result=$(curl -s "$endpoint")
-    if command -v jq >/dev/null 2>&1; then
-        echo "$result" | jq
+    if [[ -n "$result" ]]; then
+        if command -v jq >/dev/null 2>&1; then
+            echo "$result" | jq
+        else
+            echo "$result"
+        fi
     else
-        echo "$result"
+        echo "Failed to fetch data from Firebase. Please check the API key and database URL."
     fi
 }
 
@@ -723,10 +731,6 @@ extract_and_test "firebase_appId" "Firebase App IDs" test_firebase_appId
 extract_and_test "firebase_databaseURL" "Firebase Database URLs" test_firebase_databaseURL
 # New extraction for Azure Tenant keys
 extract_and_test "azure_tenant" "Azure Tenant" test_azure_tenant
-# Add extraction for AWS Secret Access Keys
-extract_and_test "amazon_aws_secret_access_key" "AWS Secret Access Keys" test_aws_secret_key
-# Add extraction for Shodan API Keys:
-extract_and_test "shodan_api_key" "Shodan API Keys" test_shodan_key
 # Add extraction for Cloudflare API Tokens:
 extract_and_test "cloudflare_api_token" "Cloudflare API Tokens" test_cloudflare_token
 # Add extraction for Dropbox API Tokens:
@@ -743,13 +747,38 @@ cat "$output_file"
 grep "^firebase_api_key ->" secrets_found.txt
 grep "^firebase_databaseURL ->" secrets_found.txt
 
-firebase_api_key_found=$(grep "^firebase_api_key ->" secrets_found.txt | head -n 1 | sed -nE "s/^firebase_api_key -> apiKey:'([^']+)'[[:space:]]*$/\1/p")
-firebase_databaseURL_found=$(grep "^firebase_databaseURL ->" secrets_found.txt | head -n 1 | sed -nE "s/^firebase_databaseURL -> databaseURL:'([^']+)'[[:space:]]*$/\1/p")
+# Correct extraction of Firebase keys
+firebase_api_key_found=$(grep "^firebase_api_key ->" secrets_found.txt | head -n 1 | sed -nE "s/^firebase_api_key -> ([A-Za-z0-9_-]{39})[[:space:]]*$/\1/p")
+firebase_databaseURL_found=$(grep "^firebase_databaseURL ->" secrets_found.txt | head -n 1 | sed -nE "s/^firebase_databaseURL -> databaseURL:\"(https:\/\/[a-zA-Z0-9-]+\.firebaseio\.com)\"[[:space:]]*$/\1/p")
+
 echo "Extracted Firebase API key: '$firebase_api_key_found'"
 echo "Extracted Firebase Database URL: '$firebase_databaseURL_found'"
+
+# Ensure both keys are found before calling fetch_firebase_data
 if [[ -n "$firebase_api_key_found" && -n "$firebase_databaseURL_found" ]]; then
     fetch_firebase_data "$firebase_api_key_found" "$firebase_databaseURL_found"
 else
     echo "Firebase API key and/or Database URL not found in secrets."
 fi
+
+# Updated fetch_firebase_data function
+fetch_firebase_data() {
+    local api_key="$1"
+    local db_url="$2"
+    # Construct endpoint (using '.json' as the default path for Firebase Realtime Database)
+    local endpoint="${db_url}/.json?auth=${api_key}"
+    echo "Fetching Firebase data from: ${endpoint}"
+    local result
+    result=$(curl -s "$endpoint")
+    if [[ -n "$result" ]]; then
+        if command -v jq >/dev/null 2>&1; then
+            echo "$result" | jq
+        else
+            echo "$result"
+        fi
+    else
+        echo "Failed to fetch data from Firebase. Please check the API key and database URL."
+    fi
+}
+
 # ...existing code...
