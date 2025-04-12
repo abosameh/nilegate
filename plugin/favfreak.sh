@@ -1,0 +1,641 @@
+#!/bin/bash
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+# Check dependencies
+for cmd in curl python3; do
+    if ! command -v $cmd &> /dev/null; then
+        echo -e "${RED}Error: $cmd is required but not installed.${NC}"
+        exit 1
+    fi
+done
+
+# Create Python hash calculator with proper EOF delimiter
+cat > /tmp/hash_calc.py << 'EOFMARKER'
+import sys
+import codecs
+import mmh3
+
+try:
+    favicon = sys.stdin.buffer.read()
+    if favicon:
+        favicon_b64 = codecs.encode(favicon, 'base64')
+        hash = mmh3.hash(favicon_b64)
+        print(hash)
+except:
+    sys.exit(1)
+EOFMARKER
+
+# Install mmh3 if not present
+python3 -c "import mmh3" 2>/dev/null || {
+    echo -e "${YELLOW}[*] Installing mmh3 Python package...${NC}"
+    pip3 install mmh3 2>/dev/null
+}
+
+# Declare fingerprint database
+declare -A fingerprints=(
+    ["99395752"]="Slack Instance"
+    ["116323821"]="Spring Boot"
+    ["81586312"]="Jenkins"
+    ["-235701012"]="Cnservers LLC"
+    ["743365239"]="Atlassian"
+    ["2128230701"]="Chainpoint"
+    ["-1277814690"]="LaCie"
+    ["246145559"]="Parse"
+    ["628535358"]="Atlassian"
+    ["855273746"]="JIRA"
+    ["1318124267"]="Avigilon"
+    ["-305179312"]="Atlassian Confluence"
+    ["786533217"]="OpenStack"
+    ["432733105"]="Pi Star"
+    ["705143395"]="Atlassian"
+    ["-1255347784"]="Angular IO"
+    ["-1275226814"]="XAMPP"
+    ["-2009722838"]="React"
+    ["981867722"]="Atlassian JIRA"
+    ["-923088984"]="OpenStack"
+    ["494866796"]="Aplikasi"
+    ["1249285083"]="Ubiquiti Aircube"
+    ["163842882"]="Cisco Meraki"
+    ["552727997"]="Atlassian JIRA"
+    ["1302486561"]="NetData"
+    ["988422585"]="CapRover"
+    ["-219752612"]="FRITZ!Box"
+    ["945408572"]="Fortinet"
+    ["1768726119"]="Outlook Web"
+    ["552592949"]="ASUS AiCloud"
+    ["631108382"]="SonicWALL"
+    ["708578229"]="Google"
+    ["-134375033"]="Plesk"
+    ["-1200737715"]="Kibana"
+    ["75230260"]="Kibana"
+    ["1668183286"]="Kibana"
+    ["283740897"]="Intelbras SA"
+    ["1424295654"]="Icecast Streaming Media Server"
+    ["1922032523"]="NEC WebPro"
+    ["-1654229048"]="Vivotek Camera"
+    ["-1414475558"]="Microsoft IIS"
+    ["-1697334194"]="Univention Portal"
+    ["-1424036600"]="Portainer Docker Management"
+    ["-831826827"]="NOS Router"
+    ["-759108386"]="Tongda"
+    ["-1022206565"]="CrushFTP"
+    ["-1225484776"]="Endian Firewall"
+    ["-631002664"]="Kerio Control Firewall"
+    ["2072198544"]="Ferozo Panel"
+    ["-466504476"]="Kerio Control Firewall"
+    ["1251810433"]="Cafe24"
+    ["1273982002"]="Mautic Marketing Automation"
+    ["-978656757"]="NETIASPOT Network"
+    ["916642917"]="Multilaser"
+    ["575613323"]="Canvas LMS"
+    ["1726027799"]="IBM Server"
+    ["-587741716"]="ADB Broadband"
+    ["-360566773"]="ARRIS Network"
+    ["-884776764"]="Huawei Network"
+    ["929825723"]="WAMPSERVER"
+    ["240136437"]="Seagate NAS"
+    ["1911253822"]="UPC Network"
+    ["-393788031"]="Flussonic Streaming"
+    ["366524387"]="Joomla"
+    ["443944613"]="WAMPSERVER"
+    ["1953726032"]="Metabase"
+    ["-2031183903"]="D-Link Network"
+    ["545827989"]="MobileIron"
+    ["967636089"]="MobileIron"
+    ["362091310"]="MobileIron"
+    ["2086228042"]="MobileIron"
+    ["-1588746893"]="CommuniGate"
+    ["1427976651"]="ZTE Network"
+    ["1648531157"]="InfiNet Wireless"
+    ["938616453"]="Mersive Solstice"
+    ["2068154487"]="Digium Switchvox"
+    ["-1788112745"]="PowerMTA monitoring"
+    ["-644617577"]="SmartLAN/G"
+    ["-1822098181"]="Checkpoint Gaia"
+    ["2127152956"]="MailWizz"
+    ["1064742722"]="RabbitMQ"
+    ["-693082538"]="OpenMediaVault NAS"
+    ["1941381095"]="OpenWRT Luci"
+    ["903086190"]="Honeywell"
+    ["829321644"]="BOMGAR Support"
+    ["-1442789563"]="Nuxt JS"
+    ["-2140379067"]="RoundCube Webmail"
+    ["-1897829998"]="D-Link Camera"
+    ["1047213685"]="Netgear Network"
+    ["1485257654"]="SonarQube"
+    ["-299324825"]="Lupus Electronics"
+    ["-1162730477"]="Vanderbilt SPC"
+    ["-1268095485"]="VZPP Plesk"
+    ["1118684072"]="Baidu"
+    ["-1616115760"]="OwnCloud"
+    ["-2054889066"]="Sentora"
+    ["1333537166"]="Alfresco"
+    ["15831193"]="WatchGuard"
+    ["-956471263"]="Web Client Pro"
+    ["-1452159623"]="Tecvoz"
+    ["99432374"]="MDaemon Remote Admin"
+    ["727253975"]="Paradox IP Module"
+    ["-630493013"]="DokuWiki"
+    ["552597979"]="Sails"
+    ["774252049"]="FastPanel Hosting"
+    ["1262005940"]="Jamf Pro"
+    ["979634648"]="StruxureWare"
+    ["475379699"]="Axcient Replibit"
+    ["-878891718"]="Twonky Server"
+    ["-2125083197"]="Windows Azure"
+    ["1248917303"]="JupyterHub"
+    ["-1908556829"]="CenturyLink Modem"
+    ["1059329877"]="Tecvoz"
+    ["-1148190371"]="OPNsense"
+    ["1467395679"]="Ligowave"
+    ["-1528414776"]="Rumpus"
+    ["-2117390767"]="Spiceworks"
+    ["-1944119648"]="TeamCity"
+    ["-1748763891"]="INSTAR IP-Camera"
+    ["251106693"]="GPON Gateway"
+    ["-1779611449"]="Alienvault"
+    ["-1745552996"]="Arbor Networks"
+    ["671221099"]="Innovaphone"
+    ["-10974981"]="Shinobi CCTV"
+    ["1274078387"]="TP-LINK"
+    ["-336242473"]="Siemens OZW772"
+    ["882208493"]="Lantronix Spider"
+    ["-590892202"]="Surfilter SSL VPN"
+    ["-50306417"]="Kyocera Printer"
+    ["784872924"]="Lucee"
+    ["1135165421"]="Ricoh"
+    ["926501571"]="Handle Proxy"
+    ["579239725"]="Metasploit"
+    ["-2056503929"]="Iomega NAS"
+    ["1241049726"]="Iomega NAS"
+    ["998138196"]="Iomega NAS"
+    ["-276759139"]="Chef Automate"
+    ["1862132268"]="Gargoyle Router"
+    ["243423870"]="VMware Horizon"
+    ["1061802161"]="VMware ESXi"
+    ["1457165071"]="Citrix XenServer"
+    ["1457128652"]="WordPress Admin"
+    ["2019488876"]="Dahua Camera"
+    ["-1637830667"]="Proxmox VE"
+    ["1235070469"]="Synology VPN Plus"
+    ["1770799630"]="Bintec Router"
+    ["-1205024243"]="lwIP Stack"
+    ["-519765377"]="Plesk Panel"
+    ["552727997"]="JIRA Software"
+    ["-1252041730"]="Vue.js App"
+    ["2063428236"]="Sentry Error Tracking"
+    ["180732787"]="Apache Flink"
+    ["-1321525644"]="APC UPS Management"
+    ["1235070469"]="Synology DSM"
+    ["-1581907337"]="JIRA Service Desk"
+    ["-1842351285"]="Red Hat Satellite"
+    ["1194272539"]="Zabbix Monitoring"
+    ["-1087941505"]="Grafana Dashboard"
+    ["-305179312"]="Confluence Wiki"
+    ["-682042738"]="phpPgAdmin"
+    ["-1238721463"]="Proxmox Backup Server"
+    ["1627330242"]="Joomla CMS"
+    ["-335242539"]="F5 BIG-IP"
+    ["1913538826"]="Material Dashboard"
+    ["1234311970"]="Onera"
+    ["-1298108480"]="Yii Framework"
+    ["603314"]="Redmine"
+    ["1139788073"]="Metasploit Console"
+    ["1876585825"]="ALIBI NVR"
+    ["-986816620"]="OpenRG Router"
+    ["-299287097"]="Cisco Router"
+    ["-873627015"]="HeroSpeed DVR"
+    ["2071993228"]="Nomadix Gateway"
+    ["-38580010"]="Magento Shop"
+    ["1490343308"]="MK-AUTH"
+    ["-632583950"]="Shoutcast Server"
+    ["95271369"]="FireEye Security"
+    ["-333791179"]="Adobe Campaign"
+    ["-676077969"]="Niagara Web Server"
+    ["728788645"]="IBM Notes"
+    ["1436966696"]="Barracuda WAF"
+    ["86919334"]="ServiceNow"
+    ["2059618623"]="HP iLO"
+    ["1975413433"]="Sunny WebBox"
+    ["-2145085239"]="Tenda Router"
+    ["-1399433489"]="Prometheus"
+    ["1786752597"]="wdCP Panel"
+    ["90680708"]="Domoticz"
+    ["-1441956789"]="Tableau"
+    ["-675839242"]="OpenWRT"
+    ["-766957661"]="MDaemon Email"
+    ["119741608"]="Teltonika Router"
+    ["1973665246"]="Entrolink"
+    ["74935566"]="WindRiver Server"
+    ["-1723752240"]="Microhard Systems"
+    ["-1807411396"]="Skype Server"
+    ["-1612496354"]="Teltonika RUT"
+    ["-167656799"]="Drupal CMS"
+    ["-1593651747"]="Blackboard Learn"
+    ["-895963602"]="Jupyter Lab"
+    ["-972810761"]="HostMonster Panel"
+    ["225632504"]="Rocket Chat"
+    ["892542951"]="Zabbix Frontend"
+    ["-374235895"]="Provision SR Camera"
+    ["1544230796"]="cPanel WHM"
+    ["462223993"]="Jeedom Home"
+    ["937999361"]="JBoss Server"
+    ["812385209"]="Solarwinds FTP"
+    ["1142227528"]="Aruba Controller"
+    ["72005642"]="RemObjects SDK"
+    ["706602230"]="VisualSVN"
+    ["-332324409"]="STARFACE VoIP"
+    ["-194439630"]="Avtech Camera"
+    ["129457226"]="Liferay Portal"
+    ["77044418"]="Polycom"
+    ["980692677"]="CakePHP App"
+    ["476213314"]="Exacq Vision"
+    ["794809961"]="CheckPoint Gateway"
+    ["1244636413"]="WebHost Manager"
+    ["-1124868062"]="Netport DSL"
+    ["2146763496"]="Mailcow Email"
+    ["-1041180225"]="QNAP Station"
+    ["917966895"]="Gogs Git"
+    ["512590457"]="Trendnet Camera"
+    ["1678170702"]="Asustor NAS"
+    ["-1466785234"]="Dahua DVR"
+    ["-505448917"]="Discuz Forum"
+    ["2110041688"]="ระบบจองห้องประชุม"
+    ["-493051473"]="hxxp://www[.k2ie.net"
+    ["-1379982221"]="Atlassian – Bamboo"
+    ["420473080"]="Exostar – Managed Access Gateway"
+    ["-1642532491"]="Atlassian – Confluence"
+    ["-702384832"]="TCN"
+    ["-532394952"]="CX"
+    ["-183163807"]="Ace"
+    ["-609520537"]="OpenGeo Suite"
+    ["-1961046099"]="Dgraph Ratel"
+    ["1319699698"]="Form.io"
+    ["-1203021870"]="Kubeflow"
+    ["-182423204"]="netdata dashboard"
+    ["2113497004"]="WiJungle"
+    ["430582574"]="SmartPing"
+    ["1232596212"]="OpenStack"
+    ["1585145626"]="netdata dashboard"
+    ["-697231354"]="Ubiquiti – AirOS"
+    ["2109473187"]="Huawei – Claro"
+    ["-1395400951"]="Huawei – ADSL/Router"
+    ["1601194732"]="Sophos Cyberoam (appliance)"
+    ["-325082670"]="LANCOM Systems"
+    ["-1050786453"]="Plesk"
+    ["-1346447358"]="TilginAB (HomeGateway)"
+    ["1410610129"]="Supermicro Intelligent Management (IPMI)"
+    ["-440644339"]="Zyxel ZyWALL"
+    ["363324987"]="Dell SonicWALL"
+    ["-1446794564"]="Ubiquiti Login Portals"
+    ["1045696447"]="Sophos User Portal/VPN Portal"
+    ["-297069493"]="Apache Tomcat"
+    ["396533629"]="OpenVPN"
+    ["1462981117"]="Cyberoam"
+    ["1772087922"]="ASP.net favicon"
+    ["1594377337"]="Technicolor"
+    ["165976831"]="Vodafone (Technicolor)"
+    ["-1677255344"]="UBNT Router UI"
+    ["-677167908"]="Kerio Connect (Webmail)"
+    ["878647854"]="BIG-IP"
+    ["442749392"]="Microsoft OWA"
+    ["1405460984"]="pfSense"
+    ["-271448102"]="iKuai Networks"
+    ["31972968"]="Dlink Webcam"
+    ["970132176"]="3CX Phone System"
+    ["-1119613926"]="Bluehost"
+    ["123821839"]="Sangfor"
+    ["459900502"]="ZTE Corporation (Gateway/Appliance)"
+    ["-2069844696"]="Ruckus Wireless"
+    ["-1607644090"]="Bitnami"
+    ["2141724739"]="Juniper Device Manager"
+    ["1835479497"]="Technicolor Gateway"
+    ["1278323681"]="Gitlab"
+    ["-1929912510"]="NETASQ - Secure / Stormshield"
+    ["-1967743928"]="SAP ID Service: Log On"
+    ["1347937389"]="SAP Conversational AI"
+    ["602431586"]="Palo Alto Login Portal"
+    ["-318947884"]="Palo Alto Networks"
+    ["1356662359"]="Outlook Web Application"
+    ["-1814887000"]="Docker"
+    ["1937209448"]="Docker"
+    ["-1544605732"]="Amazon"
+    ["716989053"]="Amazon"
+    ["-1010568750"]="phpMyAdmin"
+    ["-1240222446"]="Zhejiang Uniview Technologies Co."
+    ["-986678507"]="ISP Manager"
+    ["-1616143106"]="AXIS (network cameras)"
+    ["768816037"]="UniFi Video Controller (airVision)"
+    ["1015545776"]="pfSense"
+    ["1838417872"]="Freebox OS"
+    ["1188645141"]="hxxps://www.hws[.com/?host"
+    ["547282364"]="Keenetic"
+    ["-1571472432"]="Sierra Wireless Ace Manager (Airlink)"
+    ["149371702"]="Synology DiskStation"
+    ["-1169314298"]="INSTAR IP Cameras"
+    ["-1038557304"]="Webmin"
+    ["1307375944"]="Octoprint (3D printer)"
+    ["1280907310"]="Webmin"
+    ["1954835352"]="Vesta Hosting Control Panel"
+    ["509789953"]="Farming Simulator Dedicated Server"
+    ["-1933493443"]="Residential Gateway"
+    ["1993518473"]="cPanel Login"
+    ["-1477563858"]="Arris"
+    ["-895890586"]="PLEX Server"
+    ["-1354933624"]="Dlink Webcam"
+    ["944969688"]="Deluge"
+    ["479413330"]="Webmin"
+    ["-435817905"]="Cambium Networks"
+    ["-981606721"]="Plesk"
+    ["833190513"]="Dahua Storm (IP Camera)"
+    ["-1314864135"]="10"
+    ["-652508439"]="Parallels Plesk Panel"
+    ["-569941107"]="Fireware Watchguard"
+    ["1326164945"]="Shock&Innovation!! netis setup"
+    ["-1738184811"]="cacaoweb"
+    ["904434662"]="Loxone (Automation)"
+    ["905744673"]="HP Printer / Server"
+    ["902521196"]="Netflix"
+    ["-2063036701"]="Linksys Smart Wi-Fi"
+    ["607846949"]="Hitron Technologies"
+    ["1281253102"]="Dahua Storm (DVR)"
+    ["661332347"]="MOBOTIX Camera"
+    ["-520888198"]="Blue Iris (Webcam)"
+    ["104189364"]="Vigor Router"
+    ["1227052603"]="Alibaba Cloud (Block Page)"
+    ["252728887"]="DD WRT (DD-WRT milli_httpd)"
+    ["-1922044295"]="Mitel Networks (MiCollab End User Portal)"
+    ["1221759509"]="Dlink Webcam"
+    ["1037387972"]="Dlink Router"
+    ["-655683626"]="PRTG Network Monitor"
+    ["1611729805"]="Elastic (Database)"
+    ["1144925962"]="Dlink Webcam"
+    ["-1666561833"]="Wildfly"
+    ["804949239"]="Cisco Meraki Dashboard"
+    ["-459291760"]="Workday"
+    ["1734609466"]="JustHost"
+    ["-1507567067"]="Baidu (IP error page)"
+    ["2006716043"]="Intelbras SA"
+    ["1782271534"]="truVision NVR (interlogix)"
+    ["-476231906"]="phpMyAdmin"
+    ["-646322113"]="Cisco (eg:Conference Room Login Page)"
+    ["-629047854"]="Jetty 404"
+    ["-1351901211"]="Luma Surveillance"
+    ["-2144363468"]="HP Printer / Server"
+    ["-127886975"]="Metasploit"
+    ["-1235192469"]="Metasploit"
+    ["-1810847295"]="Sangfor"
+    ["-291579889"]="Websockets test page (eg: port 5900)"
+    ["1629518721"]="macOS Server (Apple)"
+    ["-1926484046"]="Sangfor"
+    ["516963061"]="Gitlab"
+    ["1476335317"]="FireEye"
+    ["-842192932"]="FireEye"
+    ["105083909"]="FireEye"
+    ["240606739"]="FireEye"
+    ["2121539357"]="FireEye"
+    ["-1437701105"]="XAMPP"
+    ["-2138771289"]="Technicolor"
+    ["711742418"]="Hitron Technologies Inc."
+    ["1211608009"]="Openfire Admin Console"
+    ["943925975"]="ZyXEL"
+    ["281559989"]="Huawei"
+    ["1020814938"]="Ubiquiti – AirOS"
+    ["1877797890"]="Eltex (Router)"
+    ["-375623619"]="bintec elmeg"
+    ["1483097076"]="SyncThru Web Service (Printers)"
+    ["1169183049"]="BoaServer"
+    ["1051648103"]="Securepoint"
+    ["-438482901"]="Moodle"
+    ["-1492966240"]="RADIX"
+    ["1466912879"]="CradlePoint Technology (Router)"
+    ["1703788174"]="D-Link (router/network)"
+    ["-1702393021"]="mofinetwork"
+    ["547474373"]="TOTOLINK (network)"
+    ["517158172"]="D-Link (router/network)"
+    ["1991562061"]="Niagara Web Server / Tridium"
+    ["-1153950306"]="Dell"
+    ["-484708885"]="Zyxel ZyWALL"
+    ["-656811182"]="Jboss"
+    ["-594256627"]="Netis (network devices)"
+    ["-649378830"]="WHM"
+    ["97604680"]="Tandberg"
+    ["-1015932800"]="Ghost (CMS)"
+    ["-771764544"]="Parallels Plesk Panel"
+    ["-617743584"]="Odoo"
+    ["1157789622"]="Ubiquiti UNMS"
+    ["1985721423"]="WorldClient for Mdaemon"
+    ["-1319025408"]="Netgear"
+    ["-1935525788"]="SmarterMail"
+    ["-12700016"]="Seafile"
+    ["-137295400"]="NETGEAR ReadyNAS"
+    ["-195508437"]="iPECS"
+    ["-2116540786"]="bet365"
+    ["-38705358"]="Reolink"
+    ["-450254253"]="idera"
+    ["-1630354993"]="Proofpoint"
+    ["-1678298769"]="Kerio Connect WebMail"
+    ["-35107086"]="WorldClient for Mdaemon"
+    ["2055322029"]="Realtek"
+    ["-692947551"]="Ruijie Networks (Login)"
+    ["-1710631084"]="Askey Cable Modem"
+    ["89321398"]="Askey Cable Modem"
+    ["90066852"]="JAWS Web Server (IP Camera)"
+    ["768231242"]="JAWS Web Server (IP Camera)"
+    ["-421986013"]="Homegrown Website Hosting"
+    ["156312019"]="Technicolor / Thomson Speedtouch (Network / ADSL)"
+    ["-560297467"]="DVR (Korean)"
+    ["-1950415971"]="Joomla"
+    ["1842351293"]="TP-LINK (Network Device)"
+    ["1433417005"]="Salesforce"
+    ["-632070065"]="Apache Haus"
+    ["1103599349"]="Untangle"
+    ["224536051"]="Shenzhen coship electronics co."
+    ["1038500535"]="D-Link (router/network)"
+    ["-355305208"]="D-Link (camera)"
+    ["-267431135"]="Kibana"
+    ["-759754862"]="Kibana"
+    ["75230260"]="Kibana"
+    ["1668183286"]="Kibana"
+    ["-368490461"]="Entronix Energy Management Platform"
+    ["1836828108"]="OpenProject"
+    ["-1775553655"]="Unified Management Console (Polycom)"
+    ["381100274"]="Moxapass ioLogik Remote Ethernet I/O Server"
+    ["2124459909"]="HFS (HTTP File Server)"
+    ["731374291"]="HFS (HTTP File Server)"
+    ["-335153896"]="Traccar GPS tracking"
+    ["896412703"]="IW"
+    ["191654058"]="Wordpress Under Construction Icon"
+    ["-342262483"]="Combivox"
+    ["5542029"]="NetComWireless (Network)"
+    ["1552860581"]="Elastic (Database)"
+    ["1174841451"]="Drupal"
+    ["-1093172228"]="truVision (NVR)"
+    ["-1688698891"]="SpamExperts"
+    ["-1546574541"]="Sonatype Nexus Repository Manager"
+    ["-256828986"]="iDirect Canada (Network Management)"
+    ["1966198264"]="OpenERP (now known as Odoo)"
+    ["2099342476"]="PKP (OpenJournalSystems) Public Knowledge Project"
+    ["541087742"]="LiquidFiles"
+    ["-882760066"]="ZyXEL (Network)"
+    ["16202868"]="Universal Devices (UD)"
+    ["987967490"]="Huawei (Network)"
+    ["-647318973"]="gm77[.]com"
+    ["-1583478052"]="Okazik[.]pl"
+    ["1969970750"]="Gitea"
+    ["-1734573358"]="TC-Group"
+    ["-1589842876"]="Deluge Web UI"
+    ["1822002133"]="登录 – AMH"
+    ["-2006308185"]="OTRS (Open Ticket Request System)"
+    ["-1702769256"]="Bosch Security Systems (Camera)"
+    ["321591353"]="Node-RED"
+    ["-923693877"]="motionEye (camera)"
+    ["-1547576879"]="Saia Burgess Controls – PCD"
+    ["1479202414"]="Arcadyan o2 box (Network)"
+    ["1081719753"]="D-Link (Network)"
+    ["-166151761"]="Abilis (Network/Automation)"
+    ["-1231681737"]="Ghost (CMS)"
+    ["321909464"]="Airwatch"
+    ["-1153873472"]="Airwatch"
+    ["1095915848"]="Airwatch"
+    ["788771792"]="Airwatch"
+    ["-1863663974"]="Airwatch"
+    ["-1267819858"]="KeyHelp (Keyweb AG)"
+    ["726817668"]="KeyHelp (Keyweb AG)"
+    ["-1474875778"]="GLPI"
+    ["5471989"]="Netcom Technology"
+    ["-1457536113"]="CradlePoint"
+    ["-736276076"]="MyASP"
+    ["-1343070146"]="Intelbras SA"
+    ["538585915"]="Lenel"
+    ["-625364318"]="OkoFEN Pellematic"
+    ["1117165781"]="SimpleHelp (Remote Support)"
+    ["-1067420240"]="GraphQL"
+    ["-1465479343"]="DNN (CMS)"
+    ["1232159009"]="Apple"
+    ["1382324298"]="Apple"
+    ["-1498185948"]="Apple"
+    ["483383992"]="ISPConfig"
+    ["-1249852061"]="Microsoft Outlook"
+    ["999357577"]="? (Possibly DVR)"
+    ["492290497"]="? (Possible IP Camera)"
+    ["400100893"]="? (DVR)"
+)
+
+# Function to calculate favicon hash using mmh3
+calculate_hash() {
+    local url="$1"
+    # Try to fetch favicon and calculate mmh3 hash
+    local hash=$(curl -sk -L --connect-timeout 5 --max-time 10 --retry 1 --retry-delay 1 "$url" 2>/dev/null | \
+                python3 /tmp/hash_calc.py 2>/dev/null)
+    if [ ! -z "$hash" ]; then
+        echo "$hash"
+    fi
+}
+
+# Function to get IP address
+get_ip() {
+    local domain="$1"
+    # Extract hostname from URL and resolve IP
+    local hostname=$(echo "$domain" | sed -E 's|^https?://||' | cut -d/ -f1)
+    local ip=$(dig +short "$hostname" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' | head -n1)
+    if [ ! -z "$ip" ]; then
+        echo "$ip"
+    else
+        echo "No IP"
+    fi
+}
+
+# Function to print banner
+print_banner() {
+    echo -e "${GREEN}
+
+<<  RiverHunter TOOL >>
+                                - Pure Bash Edition               
+    ${NC}"
+}
+
+# Main execution
+print_banner
+
+# Initialize associative array for results
+declare -A results
+
+# Save stdin to temp array first
+mapfile -t urls
+
+# Get total count
+total=${#urls[@]}
+
+# Process saved input
+counter=0
+for domain in "${urls[@]}"; do
+    ((counter++))
+    # Clean up domain and ensure it ends with favicon.ico
+    domain=$(echo "$domain" | tr -d '[:space:]')
+    if [[ "$domain" == */ ]]; then
+        favicon_url="${domain}favicon.ico"
+    else
+        favicon_url="${domain}/favicon.ico"
+    fi
+
+    # Calculate hash with progress indicator
+    echo -ne "\r\033[K${GREEN}[${counter}/${total}]${NC} Processing: $domain"
+    hash=$(calculate_hash "$favicon_url")
+    if [ ! -z "$hash" ]; then
+        ip=$(get_ip "$domain")
+        echo -e "\r\033[K${GREEN}[✓]${NC} Fetched $domain"
+        results["$hash"]+="$domain | $ip"$'\n'
+    else
+        echo -e "\r\033[K${RED}[✗]${NC} Failed: $domain"
+    fi
+done
+
+# Print results with fingerprint matches
+echo -e "\n-------------------------------------------------------------------"
+echo -e "${GREEN}[Favicon Hash Results] - ${NC}\n"
+
+for hash in "${!results[@]}"; do
+    if [[ ${fingerprints[$hash]} ]]; then
+        echo -e "${YELLOW}[Hash]${NC} ${GREEN}$hash${NC} - ${RED}[${fingerprints[$hash]}]${NC}"
+    else
+        echo -e "${YELLOW}[Hash]${NC} ${GREEN}$hash${NC}"
+    fi
+    echo -e "${results[$hash]}" | sed 's/^/     /'
+done
+
+# Add fingerprint summary section
+echo -e "\n-------------------------------------------------------------------"
+echo -e "${GREEN}[Fingerprint Matches] - ${NC}\n"
+
+for hash in "${!results[@]}"; do
+    if [[ ${fingerprints[$hash]} ]]; then
+        echo -e "${RED}[${fingerprints[$hash]}]${NC} $hash - count: $(echo -n "${results[$hash]}" | grep -c '^')"
+        echo -e "${results[$hash]}" | sed 's/^/     /'
+    fi
+done
+
+# Print Shodan dorks if requested
+if [[ "$*" == *"--shodan"* ]]; then
+    echo -e "\n-------------------------------------------------------------------"
+    echo -e "${GREEN}[Shodan Dorks] - ${NC}\n"
+    for hash in "${!results[@]}"; do
+        echo -e "${YELLOW}[DORK]${NC} http.favicon.hash:$hash"
+    done
+fi
+
+# Handle output to files if -o specified
+output_dir=""
+if [[ "$*" == *"-o"* ]]; then
+    output_dir=$(echo "$*" | grep -o '\-o \S*' | cut -d' ' -f2)
+    mkdir -p "$output_dir"
+    for hash in "${!results[@]}"; do
+        echo -e "${results[$hash]}" > "$output_dir/$hash.txt"
+    done
+    echo -e "\n${GREEN}[+] Output saved to: $output_dir${NC}"
+fi
